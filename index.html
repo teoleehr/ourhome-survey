@@ -166,6 +166,17 @@ textarea.qt::placeholder{color:#CCC8C0;font-size:13px;}
   .header-top,.header-title{padding-left:16px;padding-right:16px;}
   .container{padding:20px 14px 60px;}
 }
+
+/* ── 자동저장 표시 ── */
+.save-bar{
+  position:fixed;bottom:20px;right:20px;
+  background:var(--dk);color:#fff;
+  font-size:12px;padding:8px 14px;border-radius:20px;
+  opacity:0;transition:opacity .4s;pointer-events:none;z-index:999;
+  display:flex;align-items:center;gap:6px;
+}
+.save-bar.show{opacity:1;}
+.save-dot{width:7px;height:7px;border-radius:50%;background:#4CAF50;flex-shrink:0;}
 </style>
 </head>
 <body>
@@ -244,7 +255,6 @@ textarea.qt::placeholder{color:#CCC8C0;font-size:13px;}
           모든 응답은 익명으로 수집됩니다
         </div>
       </div>
-      
     </div>
 
     <!-- LQ1 -->
@@ -377,7 +387,6 @@ textarea.qt::placeholder{color:#CCC8C0;font-size:13px;}
           모든 응답은 익명으로 수집됩니다
         </div>
       </div>
-      
     </div>
 
     <!-- SQ1 -->
@@ -484,6 +493,7 @@ textarea.qt::placeholder{color:#CCC8C0;font-size:13px;}
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="save-bar" id="saveBar"><div class="save-dot"></div>자동 저장됨</div>
 
 <script>
 // ══ 설정 ══
@@ -495,10 +505,8 @@ let current = 'roleScreen';
 function go(toId) {
   const from = document.getElementById(current);
   const to   = document.getElementById(toId);
-  // 현재 화면 왼쪽으로 슬라이드 아웃
   from.classList.remove('active');
   from.classList.add('hidden-left');
-  // 새 화면 오른쪽에서 슬라이드 인
   to.classList.remove('hidden-right','hidden-left');
   to.classList.add('active');
   to.scrollTop = 0;
@@ -508,10 +516,8 @@ function go(toId) {
 function goBack() {
   const from = document.getElementById(current);
   const to   = document.getElementById('roleScreen');
-  // 현재 화면 오른쪽으로 슬라이드 아웃
   from.classList.remove('active');
   from.classList.add('hidden-right');
-  // 역할 선택 왼쪽에서 복귀
   to.classList.remove('hidden-left','hidden-right');
   to.classList.add('active');
   current = 'roleScreen';
@@ -562,6 +568,7 @@ async function submit(prefix){
   try{
     await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,...q})});
     toast('✓ 제출되었습니다. 감사합니다!','ok');
+    clearDraft();
     for(let i=1;i<=5;i++){
       const el=document.getElementById(p+i);if(el)el.value='';
       const h=document.getElementById(prefix+'h'+i);if(h)h.innerHTML='';
@@ -572,6 +579,56 @@ async function submit(prefix){
     btn.disabled=false;btn.textContent='응답 제출하기';
   }
 }
+
+// ══ 자동저장 ══
+const SAVE_KEY = 'detox_survey_draft';
+
+function showSaved(){
+  const bar=document.getElementById('saveBar');
+  bar.classList.add('show');
+  clearTimeout(bar._t);
+  bar._t=setTimeout(()=>bar.classList.remove('show'),2000);
+}
+function saveDraft(){
+  const draft={};
+  ['lq1','lq2','lq3','lq4','lq5','sq1','sq2','sq3','sq4','sq5'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el&&el.value) draft[id]=el.value;
+  });
+  if(Object.keys(draft).length>0){
+    localStorage.setItem(SAVE_KEY,JSON.stringify(draft));
+    showSaved();
+  }
+}
+function loadDraft(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return;
+    const draft=JSON.parse(raw);
+    Object.entries(draft).forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      if(el){
+        el.value=val;
+        const hlId=id.replace('lq','lh').replace('sq','sh');
+        sh(el,hlId);
+      }
+    });
+    if(Object.keys(draft).length>0) showSaved();
+  }catch(e){}
+}
+function clearDraft(){
+  localStorage.removeItem(SAVE_KEY);
+}
+
+let saveTimer;
+document.querySelectorAll('textarea.qt').forEach(ta=>{
+  ta.addEventListener('input',()=>{
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(saveDraft,1000);
+  });
+});
+
+document.addEventListener('DOMContentLoaded',loadDraft);
 </script>
 </body>
 </html>
